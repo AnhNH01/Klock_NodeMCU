@@ -10,17 +10,20 @@
 #include <ArduinoJson.h>
 #include <vector>
 
-// #define MQTT_BROKER "192.168.100.11"
-#define MQTT_BROKER "172.20.10.3"
+#define MQTT_BROKER "192.168.1.15"
+// #define MQTT_BROKER "172.20.10.3"
 #define MQTT_PORT 1883
-#define SSID "Haianh's phone"
-#define PWD "haianh123"
+// #define SSID "Haianh's phone"
+// #define PWD "haianh123"
+#define SSID "Hai Anh"
+#define PWD "67750105"
 #define LCD_COLUMNS 16
 #define LCD_ROWS 2
 
 #define MQTT_TOPIC_SET_TIME "clock/time/set"
 #define MQTT_TOPIC_SET_DATE "clock/date/set"
 #define MQTT_TOPIC_SET_ALARM "clock/alarm/set"
+#define MQTT_TOPIC_ALARM "clock/alarm"
 
 RTC_DS1307 rtc;
 LiquidCrystal_I2C lcd(0x27, LCD_COLUMNS, LCD_ROWS);
@@ -34,6 +37,8 @@ void callBack(char *topic, byte *payload, unsigned int length);
 LiquidCrystal_I2C *plcd;
 
 std::vector<Alarm> alarms;
+
+// Problem: when sending a list of alarm, specify capacity to prevent incorrecly parsed data in android app --> leads to err
 
 void setup()
 {
@@ -107,13 +112,14 @@ void mqttConnection()
 
   client.subscribe(MQTT_TOPIC_SET_TIME);
   client.subscribe(MQTT_TOPIC_SET_DATE);
+  client.subscribe(MQTT_TOPIC_SET_ALARM);
 
   client.publish("test/hello", "Hello from esp8266");
 }
 
 void callBack(char *topic, byte *payload, unsigned int length)
 {
-  Serial.println("Msg arrived @ " + String(topic));
+  Serial.println("Msg arrived: @ " + String(topic) + ' ' + String((char *)payload));
   StaticJsonDocument<256> jsonDoc;
   deserializeJson(jsonDoc, payload);
   if (String(topic) == String(MQTT_TOPIC_SET_TIME))
@@ -133,30 +139,42 @@ void callBack(char *topic, byte *payload, unsigned int length)
   }
   else if (String(topic) == String(MQTT_TOPIC_SET_ALARM))
   {
-    if (jsonDoc['get'])
+    payload[length] = '\0';
+    String msg = String((char *)payload);
+    if (msg == String("GET"))
     {
-      // returns list of alarms
+      String returnMsg = "";
+      parseListAlarm(alarms, returnMsg);
+      client.publish(MQTT_TOPIC_ALARM, returnMsg.c_str(), false);
     }
     else
     {
-      // if alarm exists, update, else add.
-      int hour = jsonDoc["hour"];
-      int minute = jsonDoc['minute'];
-      int state = jsonDoc["state"];
-      int id = jsonDoc["id"];
-      bool add = false;
-      for (auto a : alarms)
+      int alarmId = jsonDoc["id"];
+      int alarmHour = jsonDoc["hour"];
+      int alarmMinute = jsonDoc["minute"];
+      int alarmState = jsonDoc["state"];
+
+      bool add = true;
+      for (auto &a : alarms)
       {
-        if (a.id == id)
+        if (a.id == alarmId)
         {
-          a.hour = hour;
-          a.minute = minute;
-          a.state = state;
-          add = true;
+          Serial.println("Update");
+          a.hour = alarmHour;
+          a.minute = alarmMinute;
+          a.state = alarmState;
+          add = false;
           break;
         }
       }
-      alarms.emplace_back(Alarm(id, hour, minute, state));
+      if (add)
+        alarms.emplace_back(Alarm(alarmId, alarmHour, alarmMinute, alarmState));
+
+      String returnMsg = "";
+
+      parseListAlarm(alarms, returnMsg);
+      Serial.println(returnMsg);
+      client.publish(MQTT_TOPIC_ALARM, returnMsg.c_str(), false);
     }
   }
 }

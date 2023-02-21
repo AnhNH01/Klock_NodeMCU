@@ -2,6 +2,7 @@
 #include "RTClib.h"
 #include <LiquidCrystal_I2C.h>
 #include <vector>
+#include <ArduinoJson.h>
 
 struct Alarm
 {
@@ -25,3 +26,5 @@ void currentTime(DateTime &now, LiquidCrystal_I2C &lcd);
 void initRtc(RTC_DS1307 &rtc, LiquidCrystal_I2C &lcd);
 
 void initAlarms(std::vector<Alarm> &alarms);
+
+void parseListAlarm(std::vector<Alarm> &alarms, String &out);

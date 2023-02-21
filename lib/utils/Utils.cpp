@@ -42,6 +42,16 @@ void initAlarms(std::vector<Alarm> &alarms)
 {
     alarms.emplace_back(Alarm(1, 12, 0, 0));
     alarms.emplace_back(Alarm(2, 13, 0, 0));
-    alarms.emplace_back(Alarm(2, 14, 0, 0));
-    alarms.emplace_back(Alarm(2, 15, 0, 0));
+    alarms.emplace_back(Alarm(3, 14, 0, 0));
+    alarms.emplace_back(Alarm(4, 15, 0, 0));
+}
+
+void parseListAlarm(std::vector<Alarm> &alarms, String &out)
+{
+    for (auto alarm : alarms)
+    {
+        out += String(alarm.id) + '-' + String(alarm.hour) + '-' + String(alarm.minute) + '-' + String(alarm.state);
+        out += ';';
+    }
+    out.remove(out.length() - 1);
 }
