@@ -28,3 +28,5 @@ void initRtc(RTC_DS1307 &rtc, LiquidCrystal_I2C &lcd);
 void initAlarms(std::vector<Alarm> &alarms);
 
 void parseListAlarm(std::vector<Alarm> &alarms, String &out);
+void parseTime(DateTime &now, String &out);
+void parseDate(DateTime &now, String &out);

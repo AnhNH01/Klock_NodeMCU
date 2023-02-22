@@ -55,3 +55,22 @@ void parseListAlarm(std::vector<Alarm> &alarms, String &out)
     }
     out.remove(out.length() - 1);
 }
+
+void parseTime(DateTime &now, String &out)
+{
+    out = "";
+    out += twodigits(now.hour());
+    out += ':';
+    out += twodigits(now.minute());
+}
+
+void parseDate(DateTime &now, String &out)
+{
+    out = "";
+    out += twodigits(now.day());
+    out += '/';
+    out += twodigits(now.month());
+    out += '/';
+    out += twodigits(now.year());
+}
+

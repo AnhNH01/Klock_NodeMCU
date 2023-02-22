@@ -9,6 +9,7 @@
 #include <ESP8266WiFi.h>
 #include <ArduinoJson.h>
 #include <vector>
+#include <millisDelay.h>
 
 #define MQTT_BROKER "192.168.1.15"
 // #define MQTT_BROKER "172.20.10.3"
@@ -20,10 +21,21 @@
 #define LCD_COLUMNS 16
 #define LCD_ROWS 2
 
+#define BUTTON_PIN D5
+#define BUZZER_PIN D6
+
 #define MQTT_TOPIC_SET_TIME "clock/time/set"
 #define MQTT_TOPIC_SET_DATE "clock/date/set"
 #define MQTT_TOPIC_SET_ALARM "clock/alarm/set"
 #define MQTT_TOPIC_ALARM "clock/alarm"
+#define MQTT_TOPIC_TIME "clock/time"
+#define MQTT_TOPIC_DATE "clock/date"
+
+const unsigned long SHOW_TIME_DELAY = 1000;
+millisDelay showTimeDelay;
+
+const unsigned long PUBLISH_DATETIME_DELAY = 15000;
+millisDelay publishDateTimeDelay;
 
 RTC_DS1307 rtc;
 LiquidCrystal_I2C lcd(0x27, LCD_COLUMNS, LCD_ROWS);
@@ -33,30 +45,67 @@ String clientId = "ESP@";
 
 void mqttConnection();
 void callBack(char *topic, byte *payload, unsigned int length);
-
-LiquidCrystal_I2C *plcd;
+void publishDateTime(DateTime &now);
+void checkAlarm(DateTime &now, std::vector<Alarm> &alarms);
 
 std::vector<Alarm> alarms;
-
-// Problem: when sending a list of alarm, specify capacity to prevent incorrecly parsed data in android app --> leads to err
 
 void setup()
 {
   Serial.begin(9600);
   WiFi.mode(WIFI_AP_STA);
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT);
+  digitalWrite(BUZZER_PIN, HIGH);
   initLcd(lcd);
   lcd.setCursor(0, 0);
   lcd.print("SETTING UP");
   initRtc(rtc, lcd);
   initAlarms(alarms);
   mqttConnection();
+  DateTime now = rtc.now();
+  currentTime(now, lcd);
+  if (client.connected())
+  {
+    publishDateTime(now);
+  }
+  showTimeDelay.start(SHOW_TIME_DELAY);
+  publishDateTimeDelay.start(PUBLISH_DATETIME_DELAY);
 }
 
 void loop()
 {
   DateTime now = rtc.now();
-  currentTime(now, lcd);
-  delay(1000);
+  if (showTimeDelay.justFinished())
+  {
+    showTimeDelay.repeat();
+    currentTime(now, lcd);
+  }
+
+  if (publishDateTimeDelay.justFinished())
+  {
+    publishDateTimeDelay.repeat();
+    publishDateTime(now);
+  }
+  checkAlarm(now, alarms);
+
+  int buttonPressed = digitalRead(BUTTON_PIN);
+  if (buttonPressed)
+  {
+    delay(100);
+    for (auto &alarm : alarms)
+    {
+      if ((alarm.hour == now.hour()) && (alarm.minute == now.minute()) && (alarm.state == 1))
+      {
+        alarm.state = 0;
+        noTone(BUZZER_PIN);
+      }
+    }
+    String returnMsg = "";
+    parseListAlarm(alarms, returnMsg);
+    client.publish(MQTT_TOPIC_ALARM, returnMsg.c_str(), false);
+  }
+
   client.loop();
 }
 
@@ -128,6 +177,8 @@ void callBack(char *topic, byte *payload, unsigned int length)
     int hour = jsonDoc["hour"];
     int minute = jsonDoc["minute"];
     rtc.adjust(DateTime(now.year(), now.month(), now.day(), hour, minute, now.second()));
+    DateTime newTime = rtc.now();
+    publishDateTime(newTime);
   }
   else if (String(topic) == String(MQTT_TOPIC_SET_DATE))
   {
@@ -136,6 +187,8 @@ void callBack(char *topic, byte *payload, unsigned int length)
     int month = jsonDoc["month"];
     int year = jsonDoc["year"];
     rtc.adjust(DateTime(year, month, day, now.hour(), now.minute(), now.second()));
+    DateTime newTime = rtc.now();
+    publishDateTime(newTime);
   }
   else if (String(topic) == String(MQTT_TOPIC_SET_ALARM))
   {
@@ -177,4 +230,31 @@ void callBack(char *topic, byte *payload, unsigned int length)
       client.publish(MQTT_TOPIC_ALARM, returnMsg.c_str(), false);
     }
   }
+}
+
+void publishDateTime(DateTime &now)
+{
+  String msg;
+  parseTime(now, msg);
+  client.publish(MQTT_TOPIC_TIME, msg.c_str(), true);
+  parseDate(now, msg);
+  client.publish(MQTT_TOPIC_DATE, msg.c_str(), true);
+}
+
+void checkAlarm(DateTime &now, std::vector<Alarm> &alarms)
+{
+  int timeHour = now.hour();
+  int timeMinute = now.minute();
+
+  for (auto alarm : alarms)
+  {
+    if (alarm.state == 1)
+    {
+      if (alarm.hour == timeHour && alarm.minute == timeMinute) {
+        tone(BUZZER_PIN, 250);
+        return;
+      }
+    }
+  }
+  noTone(BUZZER_PIN);
 }
