@@ -73,4 +73,3 @@ void parseDate(DateTime &now, String &out)
     out += '/';
     out += twodigits(now.year());
 }
-

@@ -11,13 +11,15 @@
 #include <vector>
 #include <millisDelay.h>
 
-#define MQTT_BROKER "192.168.1.15"
-// #define MQTT_BROKER "172.20.10.3"
+// #define MQTT_BROKER "192.168.1.15"
+
+#define MQTT_BROKER "192.168.82.115"
 #define MQTT_PORT 1883
-// #define SSID "Haianh's phone"
-// #define PWD "haianh123"
-#define SSID "Hai Anh"
-#define PWD "67750105"
+#define SSID "Nokia 8.1"
+#define PWD "haianh123"
+
+// #define SSID "Hai Anh"
+// #define PWD "67750105"
 #define LCD_COLUMNS 16
 #define LCD_ROWS 2
 
@@ -58,6 +60,7 @@ void setup()
   pinMode(BUTTON_PIN, INPUT);
   digitalWrite(BUZZER_PIN, HIGH);
   initLcd(lcd);
+  lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("SETTING UP");
   initRtc(rtc, lcd);
@@ -163,7 +166,7 @@ void mqttConnection()
   client.subscribe(MQTT_TOPIC_SET_DATE);
   client.subscribe(MQTT_TOPIC_SET_ALARM);
 
-  client.publish("test/hello", "Hello from esp8266");
+  lcd.clear();
 }
 
 void callBack(char *topic, byte *payload, unsigned int length)
@@ -250,7 +253,8 @@ void checkAlarm(DateTime &now, std::vector<Alarm> &alarms)
   {
     if (alarm.state == 1)
     {
-      if (alarm.hour == timeHour && alarm.minute == timeMinute) {
+      if (alarm.hour == timeHour && alarm.minute == timeMinute)
+      {
         tone(BUZZER_PIN, 250);
         return;
       }
