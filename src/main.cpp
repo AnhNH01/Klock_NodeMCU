@@ -4,7 +4,7 @@
 #include <LiquidCrystal_I2C.h>
 #include <Adafruit_I2CDevice.h>
 #include "RTClib.h"
-#include "Utils.h"
+#include "utility.h"
 #include <PubSubClient.h>
 #include <ESP8266WiFi.h>
 #include <ArduinoJson.h>
